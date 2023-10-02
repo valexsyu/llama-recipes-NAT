@@ -1,5 +1,6 @@
 import torch
 from transformers import LlamaForCausalLM, LlamaTokenizer
+
 model_id="/work/valex1377/llama/models_hf/7B"
 tokenizer = LlamaTokenizer.from_pretrained(model_id)
 model =LlamaForCausalLM.from_pretrained(model_id, load_in_8bit=True, device_map='auto', torch_dtype=torch.float16)
@@ -27,14 +28,13 @@ Summary:
 """
 
 model_input = tokenizer(eval_prompt, return_tensors="pt").to("cuda")
-import pdb;pdb.set_trace()
 model.generate(**model_input, max_new_tokens=100)
 model.eval()
 with torch.no_grad():
     print(tokenizer.decode(model.generate(**model_input, max_new_tokens=100)[0], skip_special_tokens=True))
 
 
-model_id="/work/valex1377/llama/models_hf/finetune-7B-nonlora"
+model_id="/work/valex1377/llama/models_hf/finetune-7B-nonlora-7epoch"
 model =LlamaForCausalLM.from_pretrained(model_id, load_in_8bit=True, device_map='auto', torch_dtype=torch.float16)    
 with torch.no_grad():
     print(tokenizer.decode(model.generate(**model_input, max_new_tokens=100)[0], skip_special_tokens=True))    

@@ -765,6 +765,46 @@ class GenerationMixin:
             past_key_values = self._convert_to_standard_cache(past_key_values, batch_size=batch_size)
         return past_key_values
 
+    ### valex
+    # def _update_model_kwargs_for_generation(
+    #     self,
+    #     outputs: ModelOutput,
+    #     model_kwargs: Dict[str, Any],
+    #     is_encoder_decoder: bool = False,
+    #     standardize_cache_format: bool = False,
+    # ) -> Dict[str, Any]:
+    #     # update past_key_values
+    #     model_kwargs["past_key_values"] = self._extract_past_from_model_output(
+    #         outputs, standardize_cache_format=standardize_cache_format
+    #     )
+    #     if getattr(outputs, "state", None) is not None:
+    #         model_kwargs["state"] = outputs.state
+
+    #     # update token_type_ids with last value
+    #     if "token_type_ids" in model_kwargs:
+    #         token_type_ids = model_kwargs["token_type_ids"]
+    #         model_kwargs["token_type_ids"] = torch.cat([token_type_ids, token_type_ids[:, -1].unsqueeze(-1)], dim=-1)
+
+    #     if not is_encoder_decoder:
+    #         # update attention mask
+    #         if "attention_mask" in model_kwargs:
+    #             attention_mask = model_kwargs["attention_mask"]
+    #             model_kwargs["attention_mask"] = torch.cat(
+    #                 [attention_mask, attention_mask.new_ones((attention_mask.shape[0], 1))], dim=-1
+    #             )
+    #     else:
+    #         # update decoder attention mask
+    #         if "decoder_attention_mask" in model_kwargs:
+    #             decoder_attention_mask = model_kwargs["decoder_attention_mask"]
+    #             model_kwargs["decoder_attention_mask"] = torch.cat(
+    #                 [decoder_attention_mask, decoder_attention_mask.new_ones((decoder_attention_mask.shape[0], 1))],
+    #                 dim=-1,
+    #             )
+
+    #     return model_kwargs
+    
+    
+    ### valex
     def _update_model_kwargs_for_generation(
         self,
         outputs: ModelOutput,
@@ -778,29 +818,30 @@ class GenerationMixin:
         )
         if getattr(outputs, "state", None) is not None:
             model_kwargs["state"] = outputs.state
-
+    
+        upsampling_rate = 1 ### valex
         # update token_type_ids with last value
         if "token_type_ids" in model_kwargs:
             token_type_ids = model_kwargs["token_type_ids"]
-            model_kwargs["token_type_ids"] = torch.cat([token_type_ids, token_type_ids[:, -1].unsqueeze(-1)], dim=-1)
+            model_kwargs["token_type_ids"] = torch.cat([token_type_ids, token_type_ids[:, -1]*(upsampling_rate+1) .unsqueeze(-1)], dim=-1)
 
         if not is_encoder_decoder:
             # update attention mask
             if "attention_mask" in model_kwargs:
                 attention_mask = model_kwargs["attention_mask"]
                 model_kwargs["attention_mask"] = torch.cat(
-                    [attention_mask, attention_mask.new_ones((attention_mask.shape[0], 1))], dim=-1
+                    [attention_mask, attention_mask.new_ones((attention_mask.shape[0], upsampling_rate+1))], dim=-1
                 )
         else:
             # update decoder attention mask
             if "decoder_attention_mask" in model_kwargs:
                 decoder_attention_mask = model_kwargs["decoder_attention_mask"]
                 model_kwargs["decoder_attention_mask"] = torch.cat(
-                    [decoder_attention_mask, decoder_attention_mask.new_ones((decoder_attention_mask.shape[0], 1))],
+                    [decoder_attention_mask, decoder_attention_mask.new_ones((decoder_attention_mask.shape[0], upsampling_rate+1))],
                     dim=-1,
                 )
 
-        return model_kwargs
+        return model_kwargs    
 
     def _reorder_cache(self, past_key_values, beam_idx):
         raise NotImplementedError(
@@ -2457,7 +2498,13 @@ class GenerationMixin:
             if synced_gpus and this_peer_finished:
                 continue  # don't waste resources running the code we don't need
 
-            next_token_logits = outputs.logits[:, -1, :]
+            ### valex
+            upsampling_rate = 1+1
+            next_token_logits = outputs.logits[:, -upsampling_rate:, :]
+            ### valex
+            
+            # next_token_logits = outputs.logits[:, -1, :] ### valex
+            
 
             # pre-process distribution
             next_tokens_scores = logits_processor(input_ids, next_token_logits)
@@ -2490,7 +2537,10 @@ class GenerationMixin:
                 next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
 
             # update generated ids, model inputs, and length for next step
-            input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1)
+            # input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1)  ###valex
+            ### valex
+            input_ids = torch.cat([input_ids, next_tokens[:]], dim=-1)
+            ### valex
             if streamer is not None:
                 streamer.put(next_tokens.cpu())
             model_kwargs = self._update_model_kwargs_for_generation(
