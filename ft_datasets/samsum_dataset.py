@@ -46,8 +46,18 @@ def get_preprocessed_natsamsum(dataset_config, tokenizer, split):
                 eos_token=tokenizer.eos_token,
             )
         }
-
-    dataset = dataset.map(apply_prompt_template, remove_columns=list(dataset.features))
+    def apply_prompt_test_template(sample):
+        return {
+            "text": prompt.format(
+                dialog=sample["dialogue"],
+                summary=sample["summary"],
+                eos_token=tokenizer.eos_token,
+            )
+        }        
+    if split == 'test':
+        dataset = dataset.map(apply_prompt_test_template, remove_columns=list(dataset.features))
+    else:
+        dataset = dataset.map(apply_prompt_template, remove_columns=list(dataset.features))
     dataset = dataset.map(
         lambda sample: tokenizer(sample["text"]),
         batched=True,

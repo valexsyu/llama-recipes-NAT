@@ -1,9 +1,11 @@
 import torch
 from transformers import LlamaForCausalLM, LlamaTokenizer
+from peft import PeftModel, PeftConfig
 
 model_id="/work/valex1377/llama/models_hf/7B"
 tokenizer = LlamaTokenizer.from_pretrained(model_id)
-# model =LlamaForCausalLM.from_pretrained(model_id, load_in_8bit=True, device_map='auto', torch_dtype=torch.float16)
+model =LlamaForCausalLM.from_pretrained(model_id, load_in_8bit=True, device_map='auto', torch_dtype=torch.float16)
+model = PeftModel.from_pretrained(model, "/work/valex1377/llama/PEFT/model_lora_e7_up1")
 # eval_prompt = """
 # Summarize this dialog:
 # A: Hi Tom, are you busy tomorrow’s afternoon?
@@ -33,23 +35,17 @@ A: Hi Tom, are you busy tomorrow’s afternoon? B: I’m pretty sure I am. What�
 Summary:
 """
 
-
+model.eval()
 
 
 # model.generate(**model_input, max_new_tokens=200)
 # with torch.no_grad():
 #     print(tokenizer.decode(model.generate(**model_input, max_new_tokens=100)[0], skip_special_tokens=True))
 
-model_id="/work/valex1377/llama/models_hf/finetune-7B-ft-7epoch"
-model =LlamaForCausalLM.from_pretrained(model_id, load_in_8bit=True, device_map='auto', torch_dtype=torch.float16)  
-model.eval()
-
 def remove_duplicate_tokens(tokens):
     remove_duplicate_tokens = torch.unique_consecutive(tokens)
-    # remove_duplicate_tokens = tokens
     return remove_duplicate_tokens
     
-
 
 model_input = tokenizer(eval_prompt, return_tensors="pt").to("cuda")  
 with torch.no_grad():
@@ -81,8 +77,6 @@ with torch.no_grad():
     print(tokenizer.decode(remove_duplicate_tokens(model.generate(**model_input, max_new_tokens=100)[0]), skip_special_tokens=True))
     print("Ans: \n Laura is going to buy a printer.")
     
-    
-    
 eval_prompt = """
 Summarize this dialog:
 Hannah: Hey, do you have Betty's number? Amanda: Lemme check Hannah: <file_gif> Amanda: Sorry, can't find it. Amanda: Ask Larry Amanda: He called her last time we were at the park together Hannah: I don't know him well Hannah: <file_gif> Amanda: Don't be shy, he's very nice Hannah: If you say so.. Hannah: I'd rather you texted him Amanda: Just text him 🙂 Hannah: Urgh.. Alright Hannah: Bye Amanda: Bye bye
@@ -92,4 +86,4 @@ Summary:
 model_input = tokenizer(eval_prompt, return_tensors="pt").to("cuda")
 with torch.no_grad():
     print(tokenizer.decode(remove_duplicate_tokens(model.generate(**model_input, max_new_tokens=100)[0]), skip_special_tokens=True))
-    print("Ans: \n Hannah needs Betty's number but Amanda doesn't have it. She needs to contact Larry.")
+    print("Ans: \n Hannah needs Betty's number but Amanda doesn't have it. She needs to contact Larry.")    

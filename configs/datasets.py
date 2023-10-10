@@ -15,7 +15,8 @@ class samsum_dataset:
 class natsamsum_dataset:
     dataset: str =  "natsamsum_dataset"
     train_split: str = "train"
-    test_split: str = "validation"
+    valid_split: str = "validation"
+    test_split: str = "test"
     input_length: int = 2048    
     
     

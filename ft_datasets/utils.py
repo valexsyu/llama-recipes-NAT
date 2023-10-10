@@ -53,7 +53,6 @@ class Concatenator_NAT(object):
         concatenated_samples = {
             k: v + list(chain(*batch[k])) for k, v in self.residual.items()
         }
-
         total_length = len(concatenated_samples[list(concatenated_samples.keys())[0]])
         extend_input_ids = concatenated_samples['input_ids'] + [concatenated_samples['input_ids'][-1]] * self.upsampling_rate
         extend_attention_masks = concatenated_samples['attention_mask'] + [concatenated_samples['attention_mask'][-1]] * self.upsampling_rate

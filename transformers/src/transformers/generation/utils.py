@@ -819,7 +819,7 @@ class GenerationMixin:
         if getattr(outputs, "state", None) is not None:
             model_kwargs["state"] = outputs.state
     
-        upsampling_rate = 1 ### valex
+        upsampling_rate = 2 ### valex
         # update token_type_ids with last value
         if "token_type_ids" in model_kwargs:
             token_type_ids = model_kwargs["token_type_ids"]
@@ -2499,8 +2499,8 @@ class GenerationMixin:
                 continue  # don't waste resources running the code we don't need
 
             ### valex
-            upsampling_rate = 1+1
-            next_token_logits = outputs.logits[:, -upsampling_rate:, :]
+            upsampling_rate = 2
+            next_token_logits = outputs.logits[:, -(upsampling_rate+1):, :]
             ### valex
             
             # next_token_logits = outputs.logits[:, -1, :] ### valex
@@ -2531,32 +2531,36 @@ class GenerationMixin:
             next_tokens = torch.argmax(next_tokens_scores, dim=-1)
 
             # finished sentences should have their next token be a padding token
-            if eos_token_id is not None:
-                if pad_token_id is None:
-                    raise ValueError("If `eos_token_id` is defined, make sure that `pad_token_id` is defined.")
-                next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
+            
+            # if eos_token_id is not None:
+            #     if pad_token_id is None:
+            #         raise ValueError("If `eos_token_id` is defined, make sure that `pad_token_id` is defined.")
+            #     next_tokens = next_tokens * unfinished_sequences + pad_token_id * (1 - unfinished_sequences)
 
             # update generated ids, model inputs, and length for next step
             # input_ids = torch.cat([input_ids, next_tokens[:, None]], dim=-1)  ###valex
             ### valex
+
             input_ids = torch.cat([input_ids, next_tokens[:]], dim=-1)
+
             ### valex
             if streamer is not None:
                 streamer.put(next_tokens.cpu())
             model_kwargs = self._update_model_kwargs_for_generation(
                 outputs, model_kwargs, is_encoder_decoder=self.config.is_encoder_decoder
             )
+            # # if eos_token was found in one sentence, set sentence to finished
+            # if eos_token_id_tensor is not None:
+            #     unfinished_sequences = unfinished_sequences.mul(
+            #         next_tokens.tile(eos_token_id_tensor.shape[0], 1).ne(eos_token_id_tensor.unsqueeze(1)).prod(dim=0)
+            #     )
 
-            # if eos_token was found in one sentence, set sentence to finished
-            if eos_token_id_tensor is not None:
-                unfinished_sequences = unfinished_sequences.mul(
-                    next_tokens.tile(eos_token_id_tensor.shape[0], 1).ne(eos_token_id_tensor.unsqueeze(1)).prod(dim=0)
-                )
-
-                # stop when each sentence is finished
-                if unfinished_sequences.max() == 0:
-                    this_peer_finished = True
-
+            #     # stop when each sentence is finished
+            #     if unfinished_sequences.max() == 0:
+            #         this_peer_finished = True
+                    
+            if eos_token_id_tensor in next_tokens:
+                this_peer_finished = True
             # stop if we exceed the maximum length
             if stopping_criteria(input_ids, scores):
                 this_peer_finished = True
